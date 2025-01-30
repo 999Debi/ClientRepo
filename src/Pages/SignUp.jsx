@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import Wrapper from "../css-wrapper/SignUp";
-
-// import React, { useState } from "react";
-// import "./SignUp.css";
+import { Link } from "react-router-dom";
 
 const SignUp = () => {
-  const [isSignUp, setIsSignUp] = useState(true);
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -19,9 +17,9 @@ const SignUp = () => {
   const validateForm = () => {
     let newErrors = {};
 
-    if (isSignUp) {
+
       if (!formData.fullName) newErrors.fullName = "Full Name is required";
-    }
+    
 
     if (!formData.email) {
       newErrors.email = "Email is required";
@@ -40,13 +38,13 @@ const SignUp = () => {
         "Password must be at least 8 characters, contain an uppercase letter, a number, and a special character.";
     }
 
-    if (isSignUp) {
+ 
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = "Confirm Password is required";
       } else if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = "Passwords do not match";
       }
-    }
+    
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -55,17 +53,17 @@ const SignUp = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateForm()) {
-      console.log(`${isSignUp ? "Sign Up" : "Login"} successful`, formData);
+      console.log( formData);
     }
   };
 
   return (
     <Wrapper>
-      <div className="container">
-        <div className="left-section">
-          <h2 className="title">{isSignUp ? "Sign Up" : "Login"}</h2>
+      
+        <div className="container">
+          <h2 className="title">Sign Up</h2>
           <form className="form" onSubmit={handleSubmit}>
-            {isSignUp && (
+            
               <div className="form-group">
                 <label>Full Name</label>
                 <input
@@ -78,7 +76,7 @@ const SignUp = () => {
                 />
                 {errors.fullName && <p className="error">{errors.fullName}</p>}
               </div>
-            )}
+            
 
             <div className="form-group">
               <label>Email</label>
@@ -93,21 +91,20 @@ const SignUp = () => {
               {errors.email && <p className="error">{errors.email}</p>}
             </div>
 
-                {isSignUp && (
-            <div className="form-group">
-              <label>Username</label>
-              <input
-                type="text"
-                className="input"
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData({ ...formData, username: e.target.value })
-                }
-              />
-              {errors.username && <p className="error">{errors.username}</p>}
-            </div>
-            )}
-
+         
+              <div className="form-group">
+                <label>Username</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={formData.username}
+                  onChange={(e) =>
+                    setFormData({ ...formData, username: e.target.value })
+                  }
+                />
+                {errors.username && <p className="error">{errors.username}</p>}
+              </div>
+            
             <div className="form-group">
               <label>Password</label>
               <input
@@ -121,7 +118,7 @@ const SignUp = () => {
               {errors.password && <p className="error">{errors.password}</p>}
             </div>
 
-            {isSignUp && (
+           
               <div className="form-group">
                 <label>Confirm Password</label>
                 <input
@@ -139,31 +136,26 @@ const SignUp = () => {
                   <p className="error">{errors.confirmPassword}</p>
                 )}
               </div>
-            )}
+        
 
             <button className="submit-button">
-              {isSignUp ? "Sign Up" : "Login"}
+             Sign Up
             </button>
             <p className="toggle-text">
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              Already have an account?
               <span
                 className="toggle-link"
-                onClick={() => setIsSignUp(!isSignUp)}
+           
               >
-                {isSignUp ? "Login" : "Sign Up"}
+               
               </span>
+              <Link to="/signin">Signin</Link>
             </p>
           </form>
         </div>
 
-        <div className="right-section">
-          <img
-            src="your-image-url-here"
-            alt="Project Illustration"
-            className="illustration"
-          />
-        </div>
-      </div>
+
+    
     </Wrapper>
   );
 };
