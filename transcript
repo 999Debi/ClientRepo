@@ -1,0 +1,84 @@
+import os
+import time
+import azure.cognitiveservices.speech as speechsdk
+
+start_time = None  # global start time
+
+def format_timestamp(seconds):
+    """Convert float seconds to HH:MM:SS.mmm format"""
+    millis = int((seconds - int(seconds)) * 1000)
+    formatted = time.strftime('%H:%M:%S', time.gmtime(seconds))
+    return f"{formatted}.{millis:03d}"
+
+def conversation_transcriber_recognition_canceled_cb(evt: speechsdk.SessionEventArgs):
+    print('Canceled event')
+
+def conversation_transcriber_session_stopped_cb(evt: speechsdk.SessionEventArgs):
+    print('SessionStopped event')
+
+def conversation_transcriber_transcribed_cb(evt: speechsdk.SpeechRecognitionEventArgs):
+    global start_time
+    print('\nTRANSCRIBED:')
+    if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        elapsed = time.time() - start_time
+        timestamp = format_timestamp(elapsed)
+        print(f"[{timestamp}] Speaker ID={evt.result.speaker_id} | Text={evt.result.text}")
+    elif evt.result.reason == speechsdk.ResultReason.NoMatch:
+        print(f'\tNOMATCH: Speech could not be TRANSCRIBED: {evt.result.no_match_details}')
+
+def conversation_transcriber_transcribing_cb(evt: speechsdk.SpeechRecognitionEventArgs):
+    print('TRANSCRIBING:')
+    print(f'\tText={evt.result.text}')
+    print(f'\tSpeaker ID={evt.result.speaker_id}')
+
+def conversation_transcriber_session_started_cb(evt: speechsdk.SessionEventArgs):
+    print('SessionStarted event')
+
+def recognize_from_file():
+    global start_time
+    speech_config = speechsdk.SpeechConfig(
+        subscription=os.environ.get('SPEECH_KEY'),
+        region=os.environ.get('SPEECH_REGION')
+    )
+    speech_config.speech_recognition_language = "en-US"
+    speech_config.set_property(
+        property_id=speechsdk.PropertyId.SpeechServiceResponse_DiarizeIntermediateResults,
+        value='true'
+    )
+
+    audio_config = speechsdk.audio.AudioConfig(filename="katiesteve.wav")
+    conversation_transcriber = speechsdk.transcription.ConversationTranscriber(
+        speech_config=speech_config, audio_config=audio_config
+    )
+
+    transcribing_stop = False
+
+    def stop_cb(evt: speechsdk.SessionEventArgs):
+        print('CLOSING on {}'.format(evt))
+        nonlocal transcribing_stop
+        transcribing_stop = True
+
+    # Attach all callbacks
+    conversation_transcriber.transcribed.connect(conversation_transcriber_transcribed_cb)
+    conversation_transcriber.transcribing.connect(conversation_transcriber_transcribing_cb)
+    conversation_transcriber.session_started.connect(conversation_transcriber_session_started_cb)
+    conversation_transcriber.session_stopped.connect(conversation_transcriber_session_stopped_cb)
+    conversation_transcriber.canceled.connect(conversation_transcriber_recognition_canceled_cb)
+    conversation_transcriber.session_stopped.connect(stop_cb)
+    conversation_transcriber.canceled.connect(stop_cb)
+
+    # Start timing and transcription
+    start_time = time.time()
+    conversation_transcriber.start_transcribing_async()
+
+    while not transcribing_stop:
+        time.sleep(0.5)
+
+    conversation_transcriber.stop_transcribing_async()
+
+# Main
+
+try:
+    recognize_from_file()
+except Exception as err:
+    print("Encountered exception. {}".format(err))
