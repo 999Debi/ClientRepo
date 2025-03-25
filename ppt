@@ -1,0 +1,49 @@
+### **Slide 1: Project Overview**  
+**Title:** Structured Meeting Documentation from Teams Meetings  
+- **Deployment:** Distributed System  
+- **Objective:** Convert Teams Meeting videos and transcripts into structured documents containing all meeting details  
+
+### **Slide 2: Current Progress**  
+**1. Frontend Development (React)**  
+- User Authentication: Login & Signup  
+- Home Page: Displays all meetings & upload button  
+
+**2. Backend (FastAPI User Server)**  
+- User Routes: Login, Signup  
+- Meeting Routes: Get all meetings, Create a new meeting  
+
+**3. Video Processing Service (FastAPI)**  
+- If transcript is provided → Pass it to OpenAI model for processing  
+- If no transcript → Extract audio & convert to text  
+- Store unique frames & retrieve frames overlapping with timestamps  
+
+### **Slide 3: Communication Between Microservices**  
+- **Framework:** Celery with Redis as the message broker  
+- **Process Flow:**  
+  - User uploads video & transcript → Sent to FastAPI User Server  
+  - FastAPI User Server sends metadata to Video Processing Service  
+  - Video Processing Service extracts transcript & stores frames  
+
+### **Slide 4: Storage & Infrastructure**  
+- **File Storage:** Azure Blob Storage for storing videos, transcripts, and processed data  
+- **Orchestration:** Kubernetes for deploying and managing multiple video processing instances  
+
+### **Slide 5: Future Work**  
+**1. Transcript Processing**  
+- Send transcript to Azure OpenAI for summarization with timestamps  
+
+**2. Frame Attachment**  
+- Attach extracted video frames to their respective timestamps  
+
+**3. File Storage & Notification**  
+- Store structured document in Azure  
+- Send email notifications to users  
+
+**4. Deployment & Scaling**  
+- Deploy services in Kubernetes  
+- Implement multiple video processing instances in a Kubernetes cluster using Docker containers  
+
+### **Slide 6: Conclusion**  
+- **Goal:** Automate structured documentation of Teams meetings  
+- **Current Status:** Core services developed, transcript extraction in progress  
+- **Next Steps:** Integration with Azure OpenAI, frame attachment, and deployment
