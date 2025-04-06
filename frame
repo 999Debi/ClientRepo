@@ -1,16 +1,37 @@
+i got text_content as varible from ai model for transcript summerozation.
+summary includes:
+meeting title:
+date and time:
+
+
+action items :
+  . points (timestamp duration in hh:mm:ss)
+   . points (timestamp duration in hh:mm:ss)
+similar items and points :
+
+Replace (hh:mm:ss)-> (hh:mm:ss)  with all images between that duration. from interval tree
+
+write all content in Word file and attach all images in that duration.
+
+
+import re
 from moviepy import VideoFileClip
 from PIL import Image
 import imagehash
 from datetime import timedelta
 from intervaltree import Interval, IntervalTree
-import os
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
+
+from docx import Document
+from docx.shared import Inches
+import io
+
 
 def format_timestamp(seconds):
     td = timedelta(seconds=int(seconds))
     return str(td)
-
-def safe_filename(ts1, ts2):
-    return f"{ts1.replace(':', '-')}_to_{ts2.replace(':', '-')}.png"
 
 def parse_timestamp(ts):
     h, m, s = map(int, ts.split(":"))
@@ -47,30 +68,41 @@ def extract_distinct_frames_with_tree(video_path):
         tree.add(Interval(start_time, duration, last_img))
 
     return tree
+def save_images_to_word(tree, transcript_intervals, output_path="output.docx"):
+    doc = Document()
+    doc.add_heading("Extracted Frames and Intervals", level=1)
+    image_cache = {}
 
-def query_transcript_frames(tree, transcript_intervals, save_dir):
-
-
-    for idx, (start_ts, end_ts) in enumerate(transcript_intervals, 1):
+    for start_ts, end_ts in transcript_intervals:
         start_sec = parse_timestamp(start_ts)
         end_sec = parse_timestamp(end_ts)
         overlaps = sorted(tree[start_sec:end_sec])
 
-        print(f"\nTranscript interval: ({start_ts} --> {end_ts})")
-        for iv in overlaps:
+        doc.add_heading(f"Transcript Interval: {start_ts} → {end_ts}", level=2)
+
+        for iv in overlaps:  # Move the loop inside
             s = format_timestamp(iv.begin)
             e = format_timestamp(iv.end)
-            print(f"  Matched Frame Interval: ({s} --> {e})")
+            filename = f"{s}_to_{e}"  # Unique key based on timestamps
 
-            filename = safe_filename(s, e)
-            path = os.path.join(save_dir, filename)
-            iv.data.save(path)
-            print(f"    → Saved as: {filename}")
+            if filename in image_cache:
+                img_stream = image_cache[filename]  # Reuse existing image stream
+                print(f"{filename} is already processed")
+            else:
+                img_stream = io.BytesIO()
+                iv.data.save(img_stream, format="PNG")
+                img_stream.seek(0)
+                image_cache[filename] = img_stream  # Cache the image for reuse
+
+            doc.add_paragraph(f"Frame Interval: {s} --> {e}")
+            doc.add_picture(img_stream, width=Inches(3))  # Add image to Word document
+
+    doc.save(output_path)
+    print(f"Word document saved as: {output_path}")
 
 # === USAGE ===
 
 video_path = "D:/random.mp4"
-save_dir= "D:\Video_frames"
 tree = extract_distinct_frames_with_tree(video_path)
 
 transcript_intervals = [
@@ -79,4 +111,46 @@ transcript_intervals = [
     ("0:01:00", "0:01:25")
 ]
 
-query_transcript_frames(tree, transcript_intervals,save_dir)
+save_images_to_word(tree, transcript_intervals)
+
+def insert_images_between(doc, tree, start_ts, end_ts, image_cache):
+    start_sec = parse_timestamp(start_ts)
+    end_sec = parse_timestamp(end_ts)
+    overlaps = sorted(tree[start_sec:end_sec])
+
+    for iv in overlaps:
+        s = format_timestamp(iv.begin)
+        e = format_timestamp(iv.end)
+        filename = f"{s}_to_{e}"
+        
+        if filename in image_cache:
+            img_stream = image_cache[filename]
+        else:
+            img_stream = io.BytesIO()
+            iv.data.save(img_stream, format="PNG")
+            img_stream.seek(0)
+            image_cache[filename] = img_stream
+
+        doc.add_paragraph(f"Frame Interval: {s} --> {e}")
+        doc.add_picture(img_stream, width=Inches(3))
+
+def process_summary_with_images(text_content, tree, output_path="summary_with_images.docx"):
+    doc = Document()
+    image_cache = {}
+
+    # Regex pattern for (hh:mm:ss)-(hh:mm:ss)
+    pattern = re.compile(r"\((\d{1,2}:\d{2}:\d{2})\)\s*-\s*\((\d{1,2}:\d{2}:\d{2})\)")
+    parts = pattern.split(text_content)
+
+    i = 0
+    while i < len(parts):
+        if i + 2 < len(parts):
+            doc.add_paragraph(parts[i])
+            insert_images_between(doc, tree, parts[i+1], parts[i+2], image_cache)
+            i += 3
+        else:
+            doc.add_paragraph(parts[i])
+            i += 1
+
+    doc.save(output_path)
+    print(f"Word document with summary and images saved as: {output_path}")
