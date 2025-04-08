@@ -1,66 +1,55 @@
-from langchain.chat_models import AzureChatOpenAI
-from langchain.chains.summarize import load_summarize_chain
 from langchain.prompts import PromptTemplate
-from langchain.docstore.document import Document
+from langchain.chains.summarize import load_summarize_chain
+from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# Step 1: Initialize your Azure OpenAI model
-llm = AzureChatOpenAI(
-    deployment_name="your-deployment-name",
-    openai_api_version="2023-05-15",
-    openai_api_key="your-api-key",
-    openai_api_base="https://your-resource-name.openai.azure.com/",
-    model_name="gpt-35-turbo",
-    temperature=0
+# Your extracted transcript content
+text_content = """Your large transcript text goes here..."""
+
+# 1. Split the transcript into chunks
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=100
 )
+docs = text_splitter.create_documents([text_content])
 
-# Step 2: Split the existing text_content string
-splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=300)
-chunks = splitter.split_text(text_content)
-docs = [Document(page_content=chunk) for chunk in chunks]
-
-# Step 3: Define custom prompts
-initial_prompt_template = PromptTemplate(
+# 2. Prompt templates for Refine chain
+initial_prompt = PromptTemplate(
     input_variables=["text"],
     template="""
-You are an expert meeting assistant. Summarize the following MS Teams meeting transcript:
-{text}
+You are an AI assistant that summarizes meeting transcripts.
 
-Provide a structured summary including:
-- Meeting Title
-- Date & Time
-- Participants
-- Key Points Discussed
-- Action Items
-- Decisions Made
-- Any Issues Raised
+Summarize the following transcript portion:
+
+{text}
 """
 )
 
-refine_prompt_template = PromptTemplate(
+refine_prompt = PromptTemplate(
     input_variables=["existing_answer", "text"],
     template="""
-You are refining an existing meeting summary with additional transcript context.
-
-Current summary:
+We have an existing summary:
 {existing_answer}
 
-Additional transcript:
+Refine the summary with this new transcript portion:
 {text}
 
-Update and expand the summary if needed. Maintain the same structured format.
+Return an updated summary.
 """
 )
 
-# Step 4: Run refine chain
+# 3. Load the refine chain
+llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo")
 refine_chain = load_summarize_chain(
     llm,
     chain_type="refine",
-    question_prompt=initial_prompt_template,
-    refine_prompt=refine_prompt_template,
+    question_prompt=initial_prompt,
+    refine_prompt=refine_prompt,
     return_intermediate_steps=False
 )
 
-# Step 5: Get final summary
-summary = refine_chain.run(docs)
-print(summary)
+# 4. Run the chain using .invoke() (not deprecated)
+summary = refine_chain.invoke({"input_documents": docs})
+
+# 5. Output the final summary
+print(summary['output_text'])
