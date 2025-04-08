@@ -1,0 +1,44 @@
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+# Assume this is your extracted text
+text_content = """
+Meeting Title: Project Phoenix - Sprint Review
+
+Date and Time: July 18, 2024, 10:00 AM - 10:45 AM PST
+
+Action Items:
+- Ben confirmed module completion (10:02:15)-(10:02:45)
+- Chloe presented new design (10:03:00)-(10:05:30)
+- David reported QA issues (10:05:45)-(10:06:30)
+"""
+
+# Parse the text_content
+lines = [line.strip() for line in text_content.strip().splitlines() if line.strip()]
+
+# Create document
+doc = Document()
+
+# Process each part
+for i, line in enumerate(lines):
+    if line.lower().startswith("meeting title:"):
+        heading = line.split(":", 1)[1].strip()
+        title = doc.add_heading(heading, level=0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    elif line.lower().startswith("date and time:"):
+        para = doc.add_paragraph()
+        run = para.add_run("Date and Time: ")
+        run.bold = True
+        run.font.size = Pt(12)
+        para.add_run(line.split(":", 1)[1].strip())
+
+    elif line.lower().startswith("action items:"):
+        doc.add_heading("Action Items", level=1)
+    
+    elif line.startswith("-"):
+        doc.add_paragraph(line[1:].strip(), style='List Bullet')
+
+# Save it
+doc.save("formatted_meeting_summary.docx")
