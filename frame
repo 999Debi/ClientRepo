@@ -154,3 +154,10 @@ def process_summary_with_images(text_content, tree, output_path="summary_with_im
 
     doc.save(output_path)
     print(f"Word document with summary and images saved as: {output_path}")
+*IMPORTANT* 
+
+All candidates are required to contact their respective Manager or Higher Authority of your team and complete the filled feedback form. Once filled, the form must be officially reverted by an authorized HR representative or your manager to the college placement email ID: placements@nitrkl.ac.in, with akshitacg8@gmail.com in CC. 
+
+_Note :_
+_1. Submission of this feedback form is mandatory, and failure to comply may result in your grade not being considered, which could affect the completion of your degree._
+_2. It is encouraged to get your feedback form filled by the upcoming week._
