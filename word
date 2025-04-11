@@ -1,44 +1,68 @@
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from celery import Celery
+import redis
+import time
+import json
 
-# Assume this is your extracted text
-text_content = """
-Meeting Title: Project Phoenix - Sprint Review
+celery_app = Celery("worker", broker="redis://localhost:6379/0")
 
-Date and Time: July 18, 2024, 10:00 AM - 10:45 AM PST
+r = redis.Redis()
 
-Action Items:
-- Ben confirmed module completion (10:02:15)-(10:02:45)
-- Chloe presented new design (10:03:00)-(10:05:30)
-- David reported QA issues (10:05:45)-(10:06:30)
-"""
+@celery_app.task
+def process_video_task(file_path, task_id):
+    # Simulate video processing
+    time.sleep(10)
+    result = {
+        "task_id": task_id,
+        "summary": f"Processed summary for {file_path}"
+    }
+    # Push result to Redis Stream
+    r.xadd("video_results", {"data": json.dumps(result)}, maxlen=1000)
 
-# Parse the text_content
-lines = [line.strip() for line in text_content.strip().splitlines() if line.strip()]
+from fastapi import FastAPI, UploadFile, BackgroundTasks
+import uuid
+import shutil
+from celery_worker import process_video_task
+import asyncio
+import json
+import redis
+import asyncpg
 
-# Create document
-doc = Document()
+app = FastAPI()
 
-# Process each part
-for i, line in enumerate(lines):
-    if line.lower().startswith("meeting title:"):
-        heading = line.split(":", 1)[1].strip()
-        title = doc.add_heading(heading, level=0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+r = redis.Redis()
 
-    elif line.lower().startswith("date and time:"):
-        para = doc.add_paragraph()
-        run = para.add_run("Date and Time: ")
-        run.bold = True
-        run.font.size = Pt(12)
-        para.add_run(line.split(":", 1)[1].strip())
+# Connect PostgreSQL
+async def store_result_in_db(task_id, summary):
+    conn = await asyncpg.connect("postgresql://user:pass@localhost/db")
+    await conn.execute("INSERT INTO results (task_id, summary) VALUES ($1, $2)", task_id, summary)
+    await conn.close()
 
-    elif line.lower().startswith("action items:"):
-        doc.add_heading("Action Items", level=1)
-    
-    elif line.startswith("-"):
-        doc.add_paragraph(line[1:].strip(), style='List Bullet')
+# Background Redis Stream Listener
+async def redis_stream_listener():
+    last_id = "0-0"
+    while True:
+        try:
+            results = r.xread({"video_results": last_id}, block=5000, count=10)
+            for stream_key, messages in results:
+                for msg_id, data in messages:
+                    last_id = msg_id
+                    payload = json.loads(data[b'data'].decode())
+                    await store_result_in_db(payload["task_id"], payload["summary"])
+        except Exception as e:
+            print(f"Error: {e}")
+        await asyncio.sleep(1)
 
-# Save it
-doc.save("formatted_meeting_summary.docx")
+@app.on_event("startup")
+async def startup_event():
+    loop = asyncio.get_event_loop()
+    loop.create_task(redis_stream_listener())
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile, background_tasks: BackgroundTasks):
+    file_id = str(uuid.uuid4())
+    file_path = f"uploads/{file_id}_{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    process_video_task.delay(file_path, file_id)
+    return {"task_id": file_id, "status": "Processing started"}
